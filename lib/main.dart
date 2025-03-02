@@ -1,122 +1,148 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:hotkey_manager/hotkey_manager.dart';
+import 'package:window_manager/window_manager.dart';
+import 'models/settings.dart';
+import 'screens/recording_screen.dart';
+import 'services/hotkey_manager.dart';
+import 'services/window_handler.dart';
+import 'services/system_tray_manager.dart';
 
-void main() {
-  runApp(const MyApp());
+late final SystemTrayManager systemTray;
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await windowManager.ensureInitialized();
+  await hotKeyManager.unregisterAll();
+
+  await windowManager.waitUntilReadyToShow();
+
+  // Set up window behavior first
+  await windowManager.setSize(const Size(600, 400));
+  await windowManager.setMinimumSize(const Size(400, 300));
+  await windowManager.setAlwaysOnTop(true);
+  await windowManager.setSkipTaskbar(true);
+  await windowManager.setPreventClose(true);
+  await windowManager.setTitle('Whisper Recorder');
+
+  // Add window listener for handling close/minimize
+  final appWindowListener = AppWindowListener();
+  windowManager.addListener(appWindowListener);
+
+  try {
+    // Initialize system tray with error handling
+    systemTray = SystemTrayManager(
+      onQuit: () async {
+        await hotKeyManager.unregisterAll();
+        await systemTray.dispose();
+        await windowManager.destroy();
+        print('<user exit>');
+      },
+    );
+    await systemTray.initialize();
+  } catch (e) {
+    debugPrint('Failed to initialize system tray, continuing without it: $e');
+  }
+
+  // Hide window on start
+  await windowManager.hide();
+
+  // Load settings
+  // TODO: handle this properly
+  final prefs = await SharedPreferences.getInstance();
+  final settings = WhisperSettings(
+    apiEndpoint: prefs.getString('apiEndpoint') ?? 'http://localhost:5001/api/extra/transcribe',
+    langCode: prefs.getString('langCode') ?? 'en',
+    suppressNonSpeech: prefs.getBool('suppressNonSpeech') ?? false,
+    hotkeyCombo: prefs.getString('hotkeyCombo') ?? 'Control+Alt+L',
+  );
+
+  runApp(WhisperApp(settings: settings));
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class WhisperApp extends StatefulWidget {
+  final WhisperSettings settings;
 
-  // This widget is the root of your application.
+  const WhisperApp({super.key, required this.settings});
+
+  @override
+  State<WhisperApp> createState() => _WhisperAppState();
+}
+
+class _WhisperAppState extends State<WhisperApp> with WindowListener {
+  late HotkeyManager _hotkeyManager;
+  RecordingScreen? _recordingScreen;
+  late AppWindowListener appWindowListener;
+  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+
+  @override
+  void initState() {
+    appWindowListener = AppWindowListener();
+    windowManager.addListener(appWindowListener);
+    windowManager.addListener(this);
+    super.initState();
+    _hotkeyManager = HotkeyManager(
+      onHotkeyPressed: _handleHotkeyPressed,
+    );
+    _setupHotkey();
+  }
+
+  Future<void> _setupHotkey() async {
+    await _hotkeyManager.setup();
+    await _hotkeyManager.registerHotkey(widget.settings.hotkeyCombo);
+  }
+
+  void _handleHotkeyPressed() {
+    if (_recordingScreen != null) {
+      _recordingScreen!.toggleRecording();
+    }
+  }
+
+  @override
+  void dispose() {
+    windowManager.removeListener(this);
+    _hotkeyManager.dispose();
+    systemTray.dispose();
+    super.dispose();
+  }
+
+  @override
+  void onWindowClose() async {
+    final context = _navigatorKey.currentContext;
+    if (context != null) {
+      await RecordingScreen.handleWindowClose(context);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-      ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
-    );
-  }
-}
-
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
-    return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ],
+      navigatorKey: _navigatorKey,
+      debugShowCheckedModeBanner: false,
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      supportedLocales: const [
+        Locale('en', ''), // English
+      ],
+      theme: ThemeData.dark().copyWith(
+        primaryColor: Colors.blue,
+        scaffoldBackgroundColor: Colors.black87,
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.blue,
+            foregroundColor: Colors.white,
+          ),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
+      home: Provider.value(
+        value: widget.settings,
+        child: RecordingScreen(
+          ref: (screen) => _recordingScreen = screen,
+          settings: widget.settings,
+          onHideWindow: _hotkeyManager.hideWindow,
+        ),
+      ),
     );
   }
 }
