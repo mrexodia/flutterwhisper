@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 import 'package:window_manager/window_manager.dart';
 import '../models/settings.dart';
 import '../models/transcription.dart';
@@ -61,7 +62,6 @@ class RecordingScreen extends StatefulWidget {
 
 class _RecordingScreenState extends State<RecordingScreen> {
   final _audioRecorder = AudioRecorder();
-  late TranscriptionService _transcriptionService;
   TranscriptionState _recordingState = TranscriptionState.idle;
   String _transcribedText = '';
   String? _errorMessage;
@@ -72,7 +72,6 @@ class _RecordingScreenState extends State<RecordingScreen> {
   void initState() {
     super.initState();
     _currentSettings = widget.settings;
-    _transcriptionService = TranscriptionService(_currentSettings);
     widget.ref?.call(widget);
   }
 
@@ -100,8 +99,10 @@ class _RecordingScreenState extends State<RecordingScreen> {
 
       await _audioRecorder.startRecording();
     } catch (e) {
+      final errorMessage = 'Failed to start recording: $e';
+      debugPrint(errorMessage);
       setState(() {
-        _errorMessage = 'Failed to start recording: $e';
+        _errorMessage = errorMessage;
         _recordingState = TranscriptionState.error;
         _isRecording = false;
       });
@@ -114,18 +115,22 @@ class _RecordingScreenState extends State<RecordingScreen> {
       
       final audioData = await _audioRecorder.stopRecording();
       
-      final response = await _transcriptionService.transcribeAudio(audioData);
+      final response = await TranscriptionService.transcribeAudio(
+        audioData,
+        _currentSettings,
+      );
       
       setState(() {
         _transcribedText = response.text;
         _recordingState = TranscriptionState.done;
       });
     } catch (e) {
+      final errorMessage = 'Transcription failed: $e';
+      debugPrint(errorMessage);
       setState(() {
-        _errorMessage = 'Transcription failed: $e';
+        _errorMessage = errorMessage;
         _recordingState = TranscriptionState.error;
       });
-      print(e);
     }
   }
 
@@ -159,7 +164,6 @@ class _RecordingScreenState extends State<RecordingScreen> {
   void _handleSettingsChanged(WhisperSettings newSettings) {
     setState(() {
       _currentSettings = newSettings;
-      _transcriptionService = TranscriptionService(newSettings);
     });
     
     // Notify parent if callback is provided

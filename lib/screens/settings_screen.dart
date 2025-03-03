@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/settings.dart';
 import '../services/hotkey_manager.dart';
+import '../services/transcription_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   final WhisperSettings settings;
@@ -44,7 +45,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   // Validate the API endpoint
-  bool _validateApiEndpoint() {
+  Future<bool> _validateApiEndpoint() async {
     try {
       final uri = Uri.parse(_apiEndpointController.text);
       if (!uri.isAbsolute || (uri.scheme != 'http' && uri.scheme != 'https')) {
@@ -53,6 +54,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
         });
         return false;
       }
+      
+      // Test API endpoint with a real transcription
+      setState(() {
+        _apiEndpointError = 'Testing API with transcription...';
+      });
+      
+      final result = await TranscriptionService.testTranscription(_apiEndpointController.text);
+      
+      if (result['success'] != true) {
+        setState(() {
+          _apiEndpointError = result['message'] ?? 'API test failed. Check console for details.';
+        });
+        return false;
+      }
+      
       setState(() {
         _apiEndpointError = null;
       });
@@ -104,11 +120,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   // Save settings and return to previous screen
   Future<void> _saveSettings() async {
+    setState(() {
+      _isSaving = true;
+    });
+    
     // Validate inputs
-    final isApiEndpointValid = _validateApiEndpoint();
+    final isApiEndpointValid = await _validateApiEndpoint();
     final isHotkeyComboValid = _validateHotkeyCombo();
     
     if (!isApiEndpointValid || !isHotkeyComboValid) {
+      setState(() {
+        _isSaving = false;
+      });
       return;
     }
     
