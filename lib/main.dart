@@ -66,14 +66,13 @@ class WhisperApp extends StatefulWidget {
 class _WhisperAppState extends State<WhisperApp> with WindowListener {
   late HotkeyManager _hotkeyManager;
   RecordingScreen? _recordingScreen;
-  late AppWindowListener appWindowListener;
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   late WhisperSettings _currentSettings;
 
   @override
   void initState() {
-    appWindowListener = AppWindowListener();
-    windowManager.addListener(appWindowListener);
+    // We don't need to create a new AppWindowListener here since one is already added in main()
+    // Just add this class as a listener to handle specific events
     windowManager.addListener(this);
     super.initState();
     _currentSettings = widget.settings;
@@ -156,6 +155,27 @@ class _WhisperAppState extends State<WhisperApp> with WindowListener {
     if (context != null) {
       await RecordingScreen.handleWindowClose(context);
     }
+  }
+  
+  @override
+  void onWindowMinimize() async {
+    // Let the default handler in AppWindowListener handle the actual minimization
+    super.onWindowMinimize();
+  }
+  
+  @override
+  void onWindowFocus() {
+    super.onWindowFocus();
+  }
+  
+  @override
+  void onWindowBlur() {
+    super.onWindowBlur();
+  }
+  
+  @override
+  void onWindowRestore() {
+    super.onWindowRestore();
   }
 
   @override
