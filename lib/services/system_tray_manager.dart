@@ -7,8 +7,12 @@ class SystemTrayManager {
   final SystemTray _systemTray = SystemTray();
   final Menu _menu = Menu();
   final VoidCallback onQuit;
+  VoidCallback? onOpenSettings;
 
-  SystemTrayManager({required this.onQuit});
+  SystemTrayManager({
+    required this.onQuit,
+    this.onOpenSettings,
+  });
 
   Future<void> initialize() async {
     try {
@@ -30,6 +34,14 @@ class SystemTrayManager {
       MenuItemLabel(
         label: 'Hide',
         onClicked: (_) async => await windowManager.hide(),
+      ),
+      MenuSeparator(),
+      MenuItemLabel(
+        label: 'Settings',
+        onClicked: (_) async {
+          await windowManager.show();
+          onOpenSettings?.call();
+        },
       ),
       MenuSeparator(),
       MenuItemLabel(
@@ -58,6 +70,11 @@ class SystemTrayManager {
     } else {
       await windowManager.show();
     }
+  }
+  
+  // Set the callback for opening settings
+  void setOnOpenSettings(VoidCallback callback) {
+    onOpenSettings = callback;
   }
 
   Future<void> dispose() async {

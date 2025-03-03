@@ -7,11 +7,13 @@ import '../models/transcription.dart';
 import '../services/audio_recorder.dart';
 import '../services/transcription_service.dart';
 import '../widgets/recording_visualizer.dart';
+import 'settings_screen.dart';
 
 class RecordingScreen extends StatefulWidget {
   final WhisperSettings settings;
   final VoidCallback onHideWindow;
   final Function(RecordingScreen)? ref;
+  final Function(WhisperSettings)? onSettingsChanged;
   _RecordingScreenState? _state;
 
   RecordingScreen({
@@ -19,9 +21,11 @@ class RecordingScreen extends StatefulWidget {
     required this.settings,
     required this.onHideWindow,
     this.ref,
+    this.onSettingsChanged,
   });
 
   void toggleRecording() => _state?.toggleRecording();
+  void navigateToSettings() => _state?.navigateToSettings();
 
   static Future<void> handleWindowClose(BuildContext context) async {
     bool? isConfirmed = await showDialog(
@@ -57,16 +61,18 @@ class RecordingScreen extends StatefulWidget {
 
 class _RecordingScreenState extends State<RecordingScreen> {
   final _audioRecorder = AudioRecorder();
-  late final TranscriptionService _transcriptionService;
+  late TranscriptionService _transcriptionService;
   TranscriptionState _recordingState = TranscriptionState.idle;
   String _transcribedText = '';
   String? _errorMessage;
   bool _isRecording = false;
+  late WhisperSettings _currentSettings;
 
   @override
   void initState() {
     super.initState();
-    _transcriptionService = TranscriptionService(widget.settings);
+    _currentSettings = widget.settings;
+    _transcriptionService = TranscriptionService(_currentSettings);
     widget.ref?.call(widget);
   }
 
@@ -132,6 +138,34 @@ class _RecordingScreenState extends State<RecordingScreen> {
     }
   }
 
+  // Navigate to settings screen
+  Future<void> navigateToSettings() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SettingsScreen(
+          settings: _currentSettings,
+          onSettingsChanged: _handleSettingsChanged,
+        ),
+      ),
+    );
+    
+    if (result is WhisperSettings) {
+      _handleSettingsChanged(result);
+    }
+  }
+
+  // Handle settings changes
+  void _handleSettingsChanged(WhisperSettings newSettings) {
+    setState(() {
+      _currentSettings = newSettings;
+      _transcriptionService = TranscriptionService(newSettings);
+    });
+    
+    // Notify parent if callback is provided
+    widget.onSettingsChanged?.call(newSettings);
+  }
+
   @override
   void dispose() {
     _audioRecorder.dispose();
@@ -142,6 +176,18 @@ class _RecordingScreenState extends State<RecordingScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black87,
+      appBar: AppBar(
+        title: const Text('Whisper Recorder'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: navigateToSettings,
+            tooltip: 'Settings',
+          ),
+        ],
+      ),
       body: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -245,7 +291,7 @@ class _RecordingScreenState extends State<RecordingScreen> {
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: Text(
-              'Press ${widget.settings.hotkeyCombo} to ${_recordingState == TranscriptionState.recording ? 'stop' : 'start'} recording',
+              'Press ${_currentSettings.hotkeyCombo} to ${_recordingState == TranscriptionState.recording ? 'stop' : 'start'} recording',
               style: const TextStyle(color: Colors.white70),
             ),
           ),

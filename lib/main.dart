@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
 import 'package:window_manager/window_manager.dart';
 import 'models/settings.dart';
@@ -49,15 +48,8 @@ void main() async {
   // Hide window on start
   await windowManager.hide();
 
-  // Load settings
-  // TODO: handle this properly
-  final prefs = await SharedPreferences.getInstance();
-  final settings = WhisperSettings(
-    apiEndpoint: prefs.getString('apiEndpoint') ?? 'http://localhost:5001/api/extra/transcribe',
-    langCode: prefs.getString('langCode') ?? 'en',
-    suppressNonSpeech: prefs.getBool('suppressNonSpeech') ?? false,
-    hotkeyCombo: prefs.getString('hotkeyCombo') ?? 'Control+Alt+L',
-  );
+  // Load settings using the enhanced WhisperSettings model
+  final settings = await WhisperSettings.loadFromPrefs();
 
   runApp(WhisperApp(settings: settings));
 }
@@ -76,6 +68,7 @@ class _WhisperAppState extends State<WhisperApp> with WindowListener {
   RecordingScreen? _recordingScreen;
   late AppWindowListener appWindowListener;
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+  late WhisperSettings _currentSettings;
 
   @override
   void initState() {
@@ -83,15 +76,42 @@ class _WhisperAppState extends State<WhisperApp> with WindowListener {
     windowManager.addListener(appWindowListener);
     windowManager.addListener(this);
     super.initState();
+    _currentSettings = widget.settings;
     _hotkeyManager = HotkeyManager(
       onHotkeyPressed: _handleHotkeyPressed,
     );
     _setupHotkey();
+    
+    // Set up system tray settings callback
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _setupSystemTraySettingsCallback();
+    });
+  }
+  
+  // Set up the system tray settings callback after the widget is built
+  void _setupSystemTraySettingsCallback() {
+    systemTray.setOnOpenSettings(() {
+      if (_recordingScreen != null) {
+        _recordingScreen!.navigateToSettings();
+      }
+    });
   }
 
   Future<void> _setupHotkey() async {
     await _hotkeyManager.setup();
-    await _hotkeyManager.registerHotkey(widget.settings.hotkeyCombo);
+    await _hotkeyManager.registerHotkey(_currentSettings.hotkeyCombo);
+  }
+
+  // Handle settings changes
+  Future<void> _handleSettingsChanged(WhisperSettings newSettings) async {
+    setState(() {
+      _currentSettings = newSettings;
+    });
+    
+    // Update hotkey if it changed
+    if (newSettings.hotkeyCombo != _currentSettings.hotkeyCombo) {
+      await _hotkeyManager.registerHotkey(newSettings.hotkeyCombo);
+    }
   }
 
   void _handleHotkeyPressed() {
@@ -136,11 +156,12 @@ class _WhisperAppState extends State<WhisperApp> with WindowListener {
         ),
       ),
       home: Provider.value(
-        value: widget.settings,
+        value: _currentSettings,
         child: RecordingScreen(
           ref: (screen) => _recordingScreen = screen,
-          settings: widget.settings,
+          settings: _currentSettings,
           onHideWindow: _hotkeyManager.hideWindow,
+          onSettingsChanged: _handleSettingsChanged,
         ),
       ),
     );
