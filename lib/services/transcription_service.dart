@@ -6,7 +6,8 @@ import '../models/settings.dart';
 
 class TranscriptionService {
   // Test audio file for API testing
-  static const String testAudioBase64 = 'UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+  static const String testAudioBase64 =
+      'UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
 
   static Future<TranscriptionResponse> transcribeAudio(
     String base64AudioData,
@@ -29,7 +30,8 @@ class TranscriptionService {
         final jsonResponse = jsonDecode(response.body) as Map<String, dynamic>;
         return TranscriptionResponse.fromJson(jsonResponse);
       } else {
-        final errorMessage = 'Failed to transcribe: ${response.statusCode} - ${response.body}';
+        final errorMessage =
+            'Failed to transcribe: ${response.statusCode} - ${response.body}';
         debugPrint(errorMessage);
         throw Exception(errorMessage);
       }
@@ -41,7 +43,9 @@ class TranscriptionService {
   }
 
   // Test API endpoint by attempting a real transcription with a test audio file
-  static Future<Map<String, dynamic>> testTranscription(String apiEndpoint) async {
+  static Future<Map<String, dynamic>> testTranscription(
+    String apiEndpoint,
+  ) async {
     try {
       final testSettings = WhisperSettings(
         apiEndpoint: apiEndpoint,
@@ -49,39 +53,36 @@ class TranscriptionService {
         suppressNonSpeech: WhisperSettings.defaultSuppressNonSpeech,
         hotkeyCombo: WhisperSettings.defaultHotkeyCombo,
       );
-      
+
       await transcribeAudio(testAudioBase64, testSettings);
-      return {
-        'success': true,
-        'message': 'Connection successful'
-      };
+      return {'success': true, 'message': 'Connection successful'};
     } catch (e) {
       debugPrint('API test failed: $e');
       String errorMessage = e.toString();
-      
+
       // Extract HTTP status code if available
       final statusCodeMatch = RegExp(r'(\d{3})').firstMatch(errorMessage);
       final statusCode = statusCodeMatch?.group(1);
-      
+
       if (statusCode != null) {
         return {
           'success': false,
           'message': 'HTTP Error: $statusCode',
-          'statusCode': statusCode
+          'statusCode': statusCode,
         };
-      } else if (errorMessage.contains('SocketException') || 
-                errorMessage.contains('Connection refused') ||
-                errorMessage.contains('Connection timed out')) {
+      } else if (errorMessage.contains('SocketException') ||
+          errorMessage.contains('Connection refused') ||
+          errorMessage.contains('Connection timed out')) {
         return {
           'success': false,
           'message': 'Connection failed',
-          'error': 'network'
+          'error': 'network',
         };
       } else {
         return {
           'success': false,
           'message': 'API Error',
-          'error': errorMessage
+          'error': errorMessage,
         };
       }
     }
