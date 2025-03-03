@@ -76,7 +76,10 @@ class RecordingScreen extends StatefulWidget {
   }
 }
 
-class _RecordingScreenState extends State<RecordingScreen> {
+class _RecordingScreenState extends State<RecordingScreen> with WindowListener {
+  // Focus handling
+  final FocusNode _focusNode = FocusNode();
+  bool _windowHasFocus = false;
   final _audioRecorder = AudioRecorder();
   TranscriptionState _recordingState = TranscriptionState.idle;
   String _transcribedText = '';
@@ -89,6 +92,27 @@ class _RecordingScreenState extends State<RecordingScreen> {
     super.initState();
     _currentSettings = widget.settings;
     widget.ref?.call(widget);
+
+    // Add window listener to track focus state
+    windowManager.addListener(this);
+  }
+
+  @override
+  void onWindowFocus() {
+    // Called when window gains focus
+    setState(() {
+      _windowHasFocus = true;
+      // Request focus on the FocusNode when window is focused
+      _focusNode.requestFocus();
+    });
+  }
+
+  @override
+  void onWindowBlur() {
+    // Called when window loses focus
+    setState(() {
+      _windowHasFocus = false;
+    });
   }
 
   Future<void> toggleRecording() async {
@@ -151,11 +175,17 @@ class _RecordingScreenState extends State<RecordingScreen> {
   }
 
   Future<void> _copyToClipboard() async {
-    await Clipboard.setData(ClipboardData(text: _transcribedText));
+    // Clean the text: trim whitespace at beginning/end and replace multiple spaces with single space
+    final cleanedText = _transcribedText.trim().replaceAll(RegExp(r'\s+'), ' ');
+
+    await Clipboard.setData(ClipboardData(text: cleanedText));
     if (mounted) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Copied to clipboard')));
+
+      // Hide the window after copying to clipboard
+      widget.onHideWindow();
     }
   }
 
@@ -189,154 +219,168 @@ class _RecordingScreenState extends State<RecordingScreen> {
 
   @override
   void dispose() {
+    windowManager.removeListener(this);
+    _focusNode.dispose();
     _audioRecorder.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black87,
-      appBar: AppBar(
-        title: const Text('Whisper Recorder'),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: navigateToSettings,
-            tooltip: 'Settings',
-          ),
-        ],
-      ),
-      body: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Expanded(
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (_recordingState == TranscriptionState.recording) ...[
-                    const Text(
-                      'Recording...',
-                      style: TextStyle(color: Colors.white, fontSize: 18),
-                    ),
-                    const SizedBox(height: 20),
-                    RecordingVisualizer(
-                      fftStream: _audioRecorder.fftStream,
-                      isRecording: _isRecording,
-                    ),
-                    const SizedBox(height: 20),
-                    ElevatedButton.icon(
-                      onPressed: toggleRecording,
-                      icon: const Icon(Icons.stop),
-                      label: const Text('Stop Recording'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
-                        foregroundColor: Colors.white,
+    return RawKeyboardListener(
+      focusNode: _focusNode,
+      onKey: (RawKeyEvent event) {
+        // Only process keyboard events when window has focus and we're in the done state
+        if (_windowHasFocus &&
+            event is RawKeyDownEvent &&
+            event.logicalKey == LogicalKeyboardKey.enter &&
+            _recordingState == TranscriptionState.done) {
+          _copyToClipboard();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: Colors.black87,
+        appBar: AppBar(
+          title: const Text('Whisper Recorder'),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.settings),
+              onPressed: navigateToSettings,
+              tooltip: 'Settings',
+            ),
+          ],
+        ),
+        body: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (_recordingState == TranscriptionState.recording) ...[
+                      const Text(
+                        'Recording...',
+                        style: TextStyle(color: Colors.white, fontSize: 18),
                       ),
-                    ),
-                  ] else if (_recordingState ==
-                      TranscriptionState.processing) ...[
-                    const CircularProgressIndicator(),
-                    const SizedBox(height: 20),
-                    const Text(
-                      'Processing...',
-                      style: TextStyle(color: Colors.white70),
-                    ),
-                  ] else if (_recordingState == TranscriptionState.done) ...[
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Text(
-                        _transcribedText,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
+                      const SizedBox(height: 20),
+                      RecordingVisualizer(
+                        fftStream: _audioRecorder.fftStream,
+                        isRecording: _isRecording,
+                      ),
+                      const SizedBox(height: 20),
+                      ElevatedButton.icon(
+                        onPressed: toggleRecording,
+                        icon: const Icon(Icons.stop),
+                        label: const Text('Stop Recording'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
                         ),
+                      ),
+                    ] else if (_recordingState ==
+                        TranscriptionState.processing) ...[
+                      const CircularProgressIndicator(),
+                      const SizedBox(height: 20),
+                      const Text(
+                        'Processing...',
+                        style: TextStyle(color: Colors.white70),
+                      ),
+                    ] else if (_recordingState == TranscriptionState.done) ...[
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Text(
+                          _transcribedText,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          ElevatedButton.icon(
+                            onPressed: _copyToClipboard,
+                            icon: const Icon(Icons.copy),
+                            label: const Text('Copy to Clipboard'),
+                          ),
+                          const SizedBox(width: 10),
+                          ElevatedButton.icon(
+                            onPressed: () {
+                              setState(() {
+                                _recordingState = TranscriptionState.idle;
+                                _transcribedText = '';
+                              });
+                              // Immediately start a new recording
+                              toggleRecording();
+                            },
+                            icon: const Icon(Icons.mic),
+                            label: const Text('New Recording'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green,
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ] else if (_recordingState == TranscriptionState.error &&
+                        _errorMessage != null) ...[
+                      Text(
+                        _errorMessage!,
+                        style: const TextStyle(color: Colors.red),
                         textAlign: TextAlign.center,
                       ),
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        ElevatedButton.icon(
-                          onPressed: _copyToClipboard,
-                          icon: const Icon(Icons.copy),
-                          label: const Text('Copy to Clipboard'),
+                      const SizedBox(height: 20),
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            _recordingState = TranscriptionState.idle;
+                            _transcribedText = '';
+                            _errorMessage = null;
+                          });
+                          // Immediately start a new recording
+                          toggleRecording();
+                        },
+                        icon: const Icon(Icons.mic),
+                        label: const Text('New Recording'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
                         ),
-                        const SizedBox(width: 10),
-                        ElevatedButton.icon(
-                          onPressed: () {
-                            setState(() {
-                              _recordingState = TranscriptionState.idle;
-                              _transcribedText = '';
-                            });
-                            // Immediately start a new recording
-                            toggleRecording();
-                          },
-                          icon: const Icon(Icons.mic),
-                          label: const Text('New Recording'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
-                            foregroundColor: Colors.white,
+                      ),
+                    ] else if (_recordingState == TranscriptionState.idle) ...[
+                      ElevatedButton.icon(
+                        onPressed: toggleRecording,
+                        icon: const Icon(Icons.mic),
+                        label: const Text('Start Recording'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 12,
                           ),
                         ),
-                      ],
-                    ),
-                  ] else if (_recordingState == TranscriptionState.error &&
-                      _errorMessage != null) ...[
-                    Text(
-                      _errorMessage!,
-                      style: const TextStyle(color: Colors.red),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 20),
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        setState(() {
-                          _recordingState = TranscriptionState.idle;
-                          _transcribedText = '';
-                          _errorMessage = null;
-                        });
-                        // Immediately start a new recording
-                        toggleRecording();
-                      },
-                      icon: const Icon(Icons.mic),
-                      label: const Text('New Recording'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        foregroundColor: Colors.white,
                       ),
-                    ),
-                  ] else if (_recordingState == TranscriptionState.idle) ...[
-                    ElevatedButton.icon(
-                      onPressed: toggleRecording,
-                      icon: const Icon(Icons.mic),
-                      label: const Text('Start Recording'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 12,
-                        ),
-                      ),
-                    ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Text(
-              'Press ${_currentSettings.hotkeyCombo} to ${_recordingState == TranscriptionState.recording ? 'stop' : 'start'} recording',
-              style: const TextStyle(color: Colors.white70),
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Text(
+                'Press ${_currentSettings.hotkeyCombo} to ${_recordingState == TranscriptionState.recording ? 'stop' : 'start'} recording',
+                style: const TextStyle(color: Colors.white70),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
