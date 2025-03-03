@@ -4,7 +4,7 @@ import 'package:hotkey_manager/hotkey_manager.dart';
 import 'package:window_manager/window_manager.dart';
 
 class HotkeyManager {
-  final VoidCallback onHotkeyPressed;
+  final Function(bool isWindowVisible) onHotkeyPressed;
   HotKey? _registeredHotkey;
   bool _isWindowVisible = false;
 
@@ -71,12 +71,11 @@ class HotkeyManager {
 
   Future<void> _handleHotkeyPressed() async {
     try {
-      if (_isWindowVisible) {
-        await hideWindow();
-      } else {
-        await showWindow();
-      }
-      onHotkeyPressed();
+      // Check the actual window visibility state from windowManager
+      final isVisible = await windowManager.isVisible();
+      
+      // Pass the current window visibility state to the callback
+      onHotkeyPressed(isVisible);
     } catch (e) {
       debugPrint('Error handling hotkey: $e');
     }
@@ -95,8 +94,11 @@ class HotkeyManager {
       await windowManager.setPosition(const Offset(100, 0));
     }
     
+    // Ensure window is shown and focused, even if minimized
     await windowManager.show();
     await windowManager.focus();
+    await windowManager.setSkipTaskbar(false); // Make sure it appears in taskbar
+    await windowManager.restore(); // Restore if minimized
     _isWindowVisible = true;
   }
 

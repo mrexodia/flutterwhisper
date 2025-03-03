@@ -114,9 +114,31 @@ class _WhisperAppState extends State<WhisperApp> with WindowListener {
     }
   }
 
-  void _handleHotkeyPressed() {
+  void _handleHotkeyPressed(bool isWindowVisible) {
     if (_recordingScreen != null) {
-      _recordingScreen!.toggleRecording();
+      final recordingState = _recordingScreen!.getRecordingState();
+      
+      if (!isWindowVisible) {
+        // If UI is hidden, show UI and immediately start recording
+        _hotkeyManager.showWindow();
+        
+        // Reset to idle state if needed before starting a new recording
+        _recordingScreen!.resetToIdle();
+        
+        // Start recording
+        _recordingScreen!.toggleRecording();
+      } else if (_recordingScreen!.isRecording()) {
+        // If UI is visible and recording is running, stop recording but DO NOT hide the UI
+        _recordingScreen!.toggleRecording();
+        // We don't hide the window here
+      } else {
+        // If UI is visible but not recording
+        // First reset to idle state if needed (e.g., if in done or error state)
+        _recordingScreen!.resetToIdle();
+        
+        // Then start recording
+        _recordingScreen!.toggleRecording();
+      }
     }
   }
 

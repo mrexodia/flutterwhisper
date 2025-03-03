@@ -27,6 +27,21 @@ class RecordingScreen extends StatefulWidget {
 
   void toggleRecording() => _state?.toggleRecording();
   void navigateToSettings() => _state?.navigateToSettings();
+  bool isRecording() => _state?._recordingState == TranscriptionState.recording ?? false;
+  TranscriptionState? getRecordingState() => _state?._recordingState;
+  
+  // Reset to idle state if currently in done or error state
+  void resetToIdle() {
+    if (_state != null && 
+        (_state!._recordingState == TranscriptionState.done || 
+         _state!._recordingState == TranscriptionState.error)) {
+      _state!.setState(() {
+        _state!._recordingState = TranscriptionState.idle;
+        _state!._transcribedText = '';
+        _state!._errorMessage = null;
+      });
+    }
+  }
 
   static Future<void> handleWindowClose(BuildContext context) async {
     bool? isConfirmed = await showDialog(
@@ -252,9 +267,15 @@ class _RecordingScreenState extends State<RecordingScreen> {
                               _recordingState = TranscriptionState.idle;
                               _transcribedText = '';
                             });
+                            // Immediately start a new recording
+                            toggleRecording();
                           },
                           icon: const Icon(Icons.mic),
                           label: const Text('New Recording'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            foregroundColor: Colors.white,
+                          ),
                         ),
                       ],
                     ),
@@ -272,9 +293,15 @@ class _RecordingScreenState extends State<RecordingScreen> {
                           _transcribedText = '';
                           _errorMessage = null;
                         });
+                        // Immediately start a new recording
+                        toggleRecording();
                       },
-                      icon: const Icon(Icons.refresh),
-                      label: const Text('Reset'),
+                      icon: const Icon(Icons.mic),
+                      label: const Text('New Recording'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                      ),
                     ),
                   ] else if (_recordingState == TranscriptionState.idle) ...[
                     ElevatedButton.icon(
