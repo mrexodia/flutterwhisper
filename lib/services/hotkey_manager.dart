@@ -30,7 +30,7 @@ class HotkeyManager {
     // Parse key combo (e.g., "Control+Alt+L")
     final keys = keyCombo.split('+');
     final lastKey = keys.last.toUpperCase();
-    
+
     final modifiers = <HotKeyModifier>[];
     for (final mod in keys.sublist(0, keys.length - 1)) {
       switch (mod.toLowerCase()) {
@@ -73,7 +73,7 @@ class HotkeyManager {
     try {
       // Check the actual window visibility state from windowManager
       final isVisible = await windowManager.isVisible();
-      
+
       // Pass the current window visibility state to the callback
       onHotkeyPressed(isVisible);
     } catch (e) {
@@ -85,19 +85,23 @@ class HotkeyManager {
     try {
       final windowSize = await windowManager.getSize();
       final frame = await windowManager.getBounds();
-      await windowManager.setPosition(Offset(
-        (frame.width - windowSize.width) / 2,
-        0, // Position at top of screen
-      ));
+      await windowManager.setPosition(
+        Offset(
+          (frame.width - windowSize.width) / 2,
+          0, // Position at top of screen
+        ),
+      );
     } catch (e) {
       // Default position if we can't get screen size
       await windowManager.setPosition(const Offset(100, 0));
     }
-    
+
     // Ensure window is shown and focused, even if minimized
     await windowManager.show();
     await windowManager.focus();
-    await windowManager.setSkipTaskbar(false); // Make sure it appears in taskbar
+    await windowManager.setSkipTaskbar(
+      false,
+    ); // Make sure it appears in taskbar
     await windowManager.restore(); // Restore if minimized
     _isWindowVisible = true;
   }

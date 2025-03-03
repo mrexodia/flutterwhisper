@@ -1,8 +1,5 @@
 import 'package:window_manager/window_manager.dart';
 
-import 'package:flutter/material.dart';
-import 'package:window_manager/window_manager.dart';
-
 class AppWindowListener extends WindowListener {
   @override
   void onWindowClose() async {

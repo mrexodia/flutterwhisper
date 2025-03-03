@@ -37,7 +37,7 @@ void main() async {
         await hotKeyManager.unregisterAll();
         await systemTray.dispose();
         await windowManager.destroy();
-        print('<user exit>');
+        debugPrint('<user exit>');
       },
     );
     await systemTray.initialize();
@@ -76,17 +76,15 @@ class _WhisperAppState extends State<WhisperApp> with WindowListener {
     windowManager.addListener(this);
     super.initState();
     _currentSettings = widget.settings;
-    _hotkeyManager = HotkeyManager(
-      onHotkeyPressed: _handleHotkeyPressed,
-    );
+    _hotkeyManager = HotkeyManager(onHotkeyPressed: _handleHotkeyPressed);
     _setupHotkey();
-    
+
     // Set up system tray settings callback
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _setupSystemTraySettingsCallback();
     });
   }
-  
+
   // Set up the system tray settings callback after the widget is built
   void _setupSystemTraySettingsCallback() {
     systemTray.setOnOpenSettings(() {
@@ -106,7 +104,7 @@ class _WhisperAppState extends State<WhisperApp> with WindowListener {
     setState(() {
       _currentSettings = newSettings;
     });
-    
+
     // Update hotkey if it changed
     if (newSettings.hotkeyCombo != _currentSettings.hotkeyCombo) {
       await _hotkeyManager.registerHotkey(newSettings.hotkeyCombo);
@@ -115,15 +113,13 @@ class _WhisperAppState extends State<WhisperApp> with WindowListener {
 
   void _handleHotkeyPressed(bool isWindowVisible) {
     if (_recordingScreen != null) {
-      final recordingState = _recordingScreen!.getRecordingState();
-      
       if (!isWindowVisible) {
         // If UI is hidden, show UI and immediately start recording
         _hotkeyManager.showWindow();
-        
+
         // Reset to idle state if needed before starting a new recording
         _recordingScreen!.resetToIdle();
-        
+
         // Start recording
         _recordingScreen!.toggleRecording();
       } else if (_recordingScreen!.isRecording()) {
@@ -134,7 +130,7 @@ class _WhisperAppState extends State<WhisperApp> with WindowListener {
         // If UI is visible but not recording
         // First reset to idle state if needed (e.g., if in done or error state)
         _recordingScreen!.resetToIdle();
-        
+
         // Then start recording
         _recordingScreen!.toggleRecording();
       }
@@ -156,26 +152,11 @@ class _WhisperAppState extends State<WhisperApp> with WindowListener {
       await RecordingScreen.handleWindowClose(context);
     }
   }
-  
+
   @override
   void onWindowMinimize() async {
     // Let the default handler in AppWindowListener handle the actual minimization
     super.onWindowMinimize();
-  }
-  
-  @override
-  void onWindowFocus() {
-    super.onWindowFocus();
-  }
-  
-  @override
-  void onWindowBlur() {
-    super.onWindowBlur();
-  }
-  
-  @override
-  void onWindowRestore() {
-    super.onWindowRestore();
   }
 
   @override

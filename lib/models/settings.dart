@@ -6,7 +6,8 @@ class WhisperSettings {
   bool suppressNonSpeech;
   String hotkeyCombo;
 
-  static const String defaultApiEndpoint = 'http://localhost:5001/api/extra/transcribe';
+  static const String defaultApiEndpoint =
+      'http://localhost:5001/api/extra/transcribe';
   static const String defaultLangCode = 'en';
   static const bool defaultSuppressNonSpeech = false;
   static const String defaultHotkeyCombo = 'Control+Alt+L';
@@ -47,7 +48,8 @@ class WhisperSettings {
     return WhisperSettings(
       apiEndpoint: prefs.getString('apiEndpoint') ?? defaultApiEndpoint,
       langCode: prefs.getString('langCode') ?? defaultLangCode,
-      suppressNonSpeech: prefs.getBool('suppressNonSpeech') ?? defaultSuppressNonSpeech,
+      suppressNonSpeech:
+          prefs.getBool('suppressNonSpeech') ?? defaultSuppressNonSpeech,
       hotkeyCombo: prefs.getString('hotkeyCombo') ?? defaultHotkeyCombo,
     );
   }
@@ -73,14 +75,14 @@ class WhisperSettings {
   bool isValidHotkeyCombo() {
     final parts = hotkeyCombo.split('+');
     if (parts.length < 2) return false;
-    
+
     final key = parts.last;
     if (key.length != 1) return false;
-    
+
     for (int i = 0; i < parts.length - 1; i++) {
       if (!supportedModifiers.contains(parts[i])) return false;
     }
-    
+
     return true;
   }
 }

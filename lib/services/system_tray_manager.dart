@@ -9,16 +9,16 @@ class SystemTrayManager {
   final VoidCallback onQuit;
   VoidCallback? onOpenSettings;
 
-  SystemTrayManager({
-    required this.onQuit,
-    this.onOpenSettings,
-  });
+  SystemTrayManager({required this.onQuit, this.onOpenSettings});
 
   Future<void> initialize() async {
     try {
       await _systemTray.initSystemTray(
         title: "Whisper Recorder",
-        iconPath: Platform.isWindows ? './assets/app_icon.ico' : './assets/app_icon.png',
+        iconPath:
+            Platform.isWindows
+                ? './assets/app_icon.ico'
+                : './assets/app_icon.png',
       );
     } catch (e) {
       debugPrint('Failed to initialize system tray: $e');
@@ -44,10 +44,7 @@ class SystemTrayManager {
         },
       ),
       MenuSeparator(),
-      MenuItemLabel(
-        label: 'Quit',
-        onClicked: (_) => onQuit(),
-      ),
+      MenuItemLabel(label: 'Quit', onClicked: (_) => onQuit()),
     ]);
 
     // Set up click handlers
@@ -71,7 +68,7 @@ class SystemTrayManager {
       await windowManager.show();
     }
   }
-  
+
   // Set the callback for opening settings
   void setOnOpenSettings(VoidCallback callback) {
     onOpenSettings = callback;

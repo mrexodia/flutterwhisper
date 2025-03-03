@@ -14,7 +14,7 @@ class AudioRecorder {
   String? _currentRecordingPath;
   final _fftController = StreamController<List<double>>.broadcast();
   final _amplitudeController = StreamController<double>.broadcast();
-  
+
   // FFT configuration
   static const int fftSize = 128; // Smaller size for faster updates
   static const int sampleRate = 16000;
@@ -24,12 +24,6 @@ class AudioRecorder {
   final _amplitudeHistory = List<double>.filled(fftSize, 0.0);
   final _smoothedFrequencies = List<double>.filled(30, 0.0);
   int _historyIndex = 0;
-  
-  // Frequency bands (in Hz) - logarithmic distribution
-  final List<double> _bandFrequencies = List.generate(31, (i) {
-    // Generate frequencies from 20Hz to 8000Hz in logarithmic scale
-    return 20.0 * pow(8000.0 / 20.0, i / 30.0);
-  });
 
   Stream<List<double>> get fftStream => _fftController.stream;
   Stream<double> get amplitudeStream => _amplitudeController.stream;
@@ -38,7 +32,7 @@ class AudioRecorder {
     if (Platform.isMacOS) {
       return await Permission.microphone.request().isGranted;
     }
-    
+
     final status = await Permission.microphone.status;
     if (status.isDenied) {
       final result = await Permission.microphone.request();
@@ -69,9 +63,9 @@ class AudioRecorder {
     _amplitudeSubscription = _audioRecorder
         .onAmplitudeChanged(const Duration(milliseconds: 30))
         .listen((amp) {
-      _amplitudeController.add(amp.current);
-      _processAmplitude(amp.current);
-    });
+          _amplitudeController.add(amp.current);
+          _processAmplitude(amp.current);
+        });
   }
 
   Future<String> stopRecording() async {
@@ -114,7 +108,7 @@ class AudioRecorder {
 
       // Perform FFT
       final spectrum = _fft.realFft(samples);
-      
+
       // Process frequency bands
       for (int i = 0; i < _frequencies.length; i++) {
         // Calculate magnitude for this frequency band
@@ -122,14 +116,19 @@ class AudioRecorder {
         final bandSize = spectrum.length ~/ (2 * _frequencies.length);
         final startBin = i * bandSize;
         final endBin = startBin + bandSize;
-        
-        for (var bin = startBin; bin < endBin && bin < spectrum.length ~/ 2; bin++) {
+
+        for (
+          var bin = startBin;
+          bin < endBin && bin < spectrum.length ~/ 2;
+          bin++
+        ) {
           final value = spectrum[bin];
           sum += sqrt(value.x * value.x + value.y * value.y);
         }
-        
+
         // Apply stronger smoothing for more stable visualization
-        _smoothedFrequencies[i] = _smoothedFrequencies[i] * 0.6 + (sum / bandSize) * 0.4;
+        _smoothedFrequencies[i] =
+            _smoothedFrequencies[i] * 0.6 + (sum / bandSize) * 0.4;
         _frequencies[i] = _smoothedFrequencies[i];
       }
 
@@ -141,10 +140,15 @@ class AudioRecorder {
           // Apply frequency-dependent scaling
           // Enhanced frequency scaling
           double freqScale;
-          if (i < 5) freqScale = 1.4; // Bass boost
-          else if (i < 15) freqScale = 1.2; // Mid boost
-          else freqScale = 1.0;
-          
+          if (i < 5) {
+            freqScale = 1.4; // Bass boost
+          } else if (i < 15) {
+            freqScale = 1.2;
+          } // Mid boost
+          else {
+            freqScale = 1.0;
+          }
+
           // Apply non-linear scaling for better dynamics
           final value = _frequencies[i] / maxValue;
           normalizedFrequencies[i] = min(1.0, pow(value, 0.7) * freqScale);

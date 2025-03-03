@@ -61,7 +61,7 @@ class TranscriptionService {
       
       // Extract HTTP status code if available
       final statusCodeMatch = RegExp(r'(\d{3})').firstMatch(errorMessage);
-      final statusCode = statusCodeMatch != null ? statusCodeMatch.group(1) : null;
+      final statusCode = statusCodeMatch?.group(1);
       
       if (statusCode != null) {
         return {

@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/foundation.dart';
 import 'package:window_manager/window_manager.dart';
 import '../models/settings.dart';
 import '../models/transcription.dart';
@@ -27,14 +26,15 @@ class RecordingScreen extends StatefulWidget {
 
   void toggleRecording() => _state?.toggleRecording();
   void navigateToSettings() => _state?.navigateToSettings();
-  bool isRecording() => _state?._recordingState == TranscriptionState.recording ?? false;
+  bool isRecording() =>
+      _state?._recordingState == TranscriptionState.recording ?? false;
   TranscriptionState? getRecordingState() => _state?._recordingState;
-  
+
   // Reset to idle state if currently in done or error state
   void resetToIdle() {
-    if (_state != null && 
-        (_state!._recordingState == TranscriptionState.done || 
-         _state!._recordingState == TranscriptionState.error)) {
+    if (_state != null &&
+        (_state!._recordingState == TranscriptionState.done ||
+            _state!._recordingState == TranscriptionState.error)) {
       _state!.setState(() {
         _state!._recordingState = TranscriptionState.idle;
         _state!._transcribedText = '';
@@ -47,20 +47,21 @@ class RecordingScreen extends StatefulWidget {
     bool? isConfirmed = await showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Text('Confirm Close'),
-        content: const Text('Are you sure you want to exit?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('No'),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Confirm Close'),
+            content: const Text('Are you sure you want to exit?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('No'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Yes'),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Yes'),
-          ),
-        ],
-      ),
     );
     if (isConfirmed == true) {
       await windowManager.destroy();
@@ -127,14 +128,14 @@ class _RecordingScreenState extends State<RecordingScreen> {
   Future<void> _stopRecordingAndTranscribe() async {
     try {
       setState(() => _recordingState = TranscriptionState.processing);
-      
+
       final audioData = await _audioRecorder.stopRecording();
-      
+
       final response = await TranscriptionService.transcribeAudio(
         audioData,
         _currentSettings,
       );
-      
+
       setState(() {
         _transcribedText = response.text;
         _recordingState = TranscriptionState.done;
@@ -152,9 +153,9 @@ class _RecordingScreenState extends State<RecordingScreen> {
   Future<void> _copyToClipboard() async {
     await Clipboard.setData(ClipboardData(text: _transcribedText));
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Copied to clipboard')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Copied to clipboard')));
     }
   }
 
@@ -163,13 +164,14 @@ class _RecordingScreenState extends State<RecordingScreen> {
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => SettingsScreen(
-          settings: _currentSettings,
-          onSettingsChanged: _handleSettingsChanged,
-        ),
+        builder:
+            (context) => SettingsScreen(
+              settings: _currentSettings,
+              onSettingsChanged: _handleSettingsChanged,
+            ),
       ),
     );
-    
+
     if (result is WhisperSettings) {
       _handleSettingsChanged(result);
     }
@@ -180,7 +182,7 @@ class _RecordingScreenState extends State<RecordingScreen> {
     setState(() {
       _currentSettings = newSettings;
     });
-    
+
     // Notify parent if callback is provided
     widget.onSettingsChanged?.call(newSettings);
   }
@@ -235,7 +237,8 @@ class _RecordingScreenState extends State<RecordingScreen> {
                         foregroundColor: Colors.white,
                       ),
                     ),
-                  ] else if (_recordingState == TranscriptionState.processing) ...[
+                  ] else if (_recordingState ==
+                      TranscriptionState.processing) ...[
                     const CircularProgressIndicator(),
                     const SizedBox(height: 20),
                     const Text(
@@ -247,7 +250,10 @@ class _RecordingScreenState extends State<RecordingScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: Text(
                         _transcribedText,
-                        style: const TextStyle(color: Colors.white, fontSize: 16),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                        ),
                         textAlign: TextAlign.center,
                       ),
                     ),
@@ -279,7 +285,8 @@ class _RecordingScreenState extends State<RecordingScreen> {
                         ),
                       ],
                     ),
-                  ] else if (_recordingState == TranscriptionState.error && _errorMessage != null) ...[
+                  ] else if (_recordingState == TranscriptionState.error &&
+                      _errorMessage != null) ...[
                     Text(
                       _errorMessage!,
                       style: const TextStyle(color: Colors.red),
@@ -311,7 +318,10 @@ class _RecordingScreenState extends State<RecordingScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.green,
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
                       ),
                     ),
                   ],

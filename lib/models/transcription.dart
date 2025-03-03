@@ -12,11 +12,11 @@ class TranscriptionRequest {
   });
 
   Map<String, dynamic> toJson() => {
-        'prompt': prompt,
-        'suppress_non_speech': suppressNonSpeech,
-        'langcode': langcode,
-        'audio_data': audioData,
-      };
+    'prompt': prompt,
+    'suppress_non_speech': suppressNonSpeech,
+    'langcode': langcode,
+    'audio_data': audioData,
+  };
 }
 
 class TranscriptionResponse {
@@ -25,16 +25,8 @@ class TranscriptionResponse {
   TranscriptionResponse({required this.text});
 
   factory TranscriptionResponse.fromJson(Map<String, dynamic> json) {
-    return TranscriptionResponse(
-      text: json['text'] as String? ?? '',
-    );
+    return TranscriptionResponse(text: json['text'] as String? ?? '');
   }
 }
 
-enum TranscriptionState {
-  idle,
-  recording,
-  processing,
-  done,
-  error,
-}
+enum TranscriptionState { idle, recording, processing, done, error }
